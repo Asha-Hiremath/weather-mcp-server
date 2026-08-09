@@ -241,12 +241,104 @@ def predict_umbrella_needed(location: str, date: Optional[str] = None) -> dict:
 
 if __name__ == "__main__":
     import os
+    import uvicorn
+    from starlette.applications import Starlette
+    from starlette.routing import Route, Mount
+    from starlette.responses import JSONResponse
+    from starlette.middleware.cors import CORSMiddleware
     
     # Get port from environment (Render uses PORT env var)
     port = int(os.environ.get("PORT", 8000))
     
-    logger.info(f"Starting Weather MCP Server with SSE transport on port {port}...")
+    logger.info(f"Starting Weather MCP Server on port {port}...")
     
-    # Run FastMCP with SSE transport
-    # This automatically creates the /sse endpoint
-    mcp.run(transport="sse", host="0.0.0.0", port=port)
+    # Create a tools endpoint that returns the tool list in JSON
+    async def tools_endpoint(request):
+        """Returns the list of available MCP tools in JSON format"""
+        tools = [
+            {
+                "name": "get_current_weather",
+                "description": "Get the current weather for a specific location. Returns temperature, conditions, humidity, and wind speed.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "location": {
+                            "type": "string",
+                            "description": "City name, optionally with state/country (e.g., 'Seattle', 'London, UK', 'Tokyo, Japan')"
+                        }
+                    },
+                    "required": ["location"]
+                }
+            },
+            {
+                "name": "get_forecast",
+                "description": "Get weather forecast for the next few days for a specific location. Returns multi-day forecast with temperatures and conditions.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "location": {
+                            "type": "string",
+                            "description": "City name, optionally with state/country"
+                        },
+                        "days": {
+                            "type": "integer",
+                            "description": "Number of days to forecast (1-7)",
+                            "default": 3
+                        }
+                    },
+                    "required": ["location"]
+                }
+            },
+            {
+                "name": "predict_umbrella_needed",
+                "description": "Predict if an umbrella will be needed based on weather forecast. Checks precipitation probability and conditions.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "location": {
+                            "type": "string",
+                            "description": "City name, optionally with state/country"
+                        },
+                        "date": {
+                            "type": "string",
+                            "description": "Date to check (YYYY-MM-DD format, defaults to today if not provided)"
+                        }
+                    },
+                    "required": ["location"]
+                }
+            }
+        ]
+        
+        return JSONResponse({
+            "tools": tools,
+            "version": "1.0",
+            "capabilities": ["weather_current", "weather_forecast", "predictions"]
+        })
+    
+    # Health check endpoint
+    async def health_check(request):
+        return JSONResponse({"status": "ok", "service": "weather-mcp-server"})
+    
+    # Create Starlette app with routes
+    app = Starlette(
+        routes=[
+            Route("/health", health_check, methods=["GET"]),
+            Route("/tools", tools_endpoint, methods=["GET", "POST", "OPTIONS"]),
+            Route("/", health_check, methods=["GET"]),
+        ]
+    )
+    
+    # Add CORS middleware to allow requests from AI Gateway
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    
+    # Run the server
+    logger.info(f"Server endpoints:")
+    logger.info(f"  Health: http://0.0.0.0:{port}/health")
+    logger.info(f"  Tools:  http://0.0.0.0:{port}/tools")
+    uvicorn.run(app, host="0.0.0.0", port=port)

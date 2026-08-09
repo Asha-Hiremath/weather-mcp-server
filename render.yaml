@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: weather-mcp-server
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python weather_mcp_server.py"
+    envVars:
+      - key: LOG_LEVEL
+        value: INFO
+      - key: PORT
+        value: 10000

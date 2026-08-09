@@ -1,0 +1,10 @@
+# Weather MCP Server Dependencies
+
+# FastMCP framework for building MCP servers
+fastmcp>=0.1.0
+
+# HTTP requests library
+requests>=2.31.0
+
+# uvicorn for ASGI server (FastMCP uses this)
+uvicorn>=0.27.0

@@ -241,22 +241,12 @@ def predict_umbrella_needed(location: str, date: Optional[str] = None) -> dict:
 
 if __name__ == "__main__":
     import os
-    import uvicorn
-    from fastapi import FastAPI
-    from fastapi.responses import StreamingResponse
     
     # Get port from environment (Render uses PORT env var)
     port = int(os.environ.get("PORT", 8000))
     
-    logger.info(f"Starting Weather MCP Server on port {port}...")
+    logger.info(f"Starting Weather MCP Server with SSE transport on port {port}...")
     
-    # Create FastAPI app to wrap FastMCP
-    app = FastAPI(title="Weather MCP Server")
-    
-    # Mount FastMCP's ASGI app
-    # This provides the /sse endpoint that AI Gateway expects
-    mcp_app = mcp.get_asgi_app()
-    app.mount("/", mcp_app)
-    
-    # Run the server
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    # Run FastMCP with SSE transport
+    # This automatically creates the /sse endpoint
+    mcp.run(transport="sse", host="0.0.0.0", port=port)
